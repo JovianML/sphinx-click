@@ -55,6 +55,7 @@ ChangeLog
 
 # virtualenv
 /.venv
+/venv
 
 # vim
 *.swp
