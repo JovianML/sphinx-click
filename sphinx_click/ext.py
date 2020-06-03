@@ -8,6 +8,7 @@ from sphinx.util import logging
 
 LOG = logging.getLogger(__name__)
 CLICK_VERSION = tuple(int(x) for x in click.__version__.split('.')[0:2])
+hide_options_in_usage = False
 
 
 def _indent(text, level=1):
@@ -97,11 +98,15 @@ def _format_description(ctx):
     yield ''
 
 
-def _format_usage(ctx):
+def _format_usage(ctx, hide_options=False):
     """Format the usage for a `click.Command`."""
     yield '.. code-block:: shell'
     yield ''
     for line in _get_usage(ctx).splitlines():
+        if hide_options:
+            line = line.split()
+            line.remove("[OPTIONS]")
+            line = " ".join(line)
         yield _indent(line)
     yield ''
 
@@ -235,8 +240,11 @@ def _format_command(ctx, show_nested, commands=None):
     yield '.. program:: {}'.format(ctx.command_path)
 
     # usage
+    global hide_options_in_usage
+    cmd_options = len(list(_format_options(ctx))) > 0
+    hide_options = hide_options_in_usage and not cmd_options
 
-    for line in _format_usage(ctx):
+    for line in _format_usage(ctx, hide_options):
         yield line
 
     # options
@@ -300,6 +308,8 @@ class ClickDirective(rst.Directive):
         'show-nested': directives.flag,
         'flat-toctree': directives.flag,
         'commands': directives.unchanged,
+        'skip-main-command': directives.flag,
+        'hide-options-in-usage': directives.flag
     }
 
     def _load_module(self, module_path):
@@ -398,7 +408,7 @@ class ClickDirective(rst.Directive):
                     section_list.extend(new_section)
                 else:
                     section.extend(new_section)
-
+        
         return section_list
 
     def run(self):
@@ -413,9 +423,17 @@ class ClickDirective(rst.Directive):
         show_nested = 'show-nested' in self.options
         flat_toctree = 'flat-toctree' in self.options
         commands = self.options.get('commands')
+        skip_main_command = 'skip-main-command' in self.options
 
-        return self._generate_nodes(prog_name, command, None, show_nested,
+        global hide_options_in_usage
+        hide_options_in_usage = 'hide-options-in-usage' in self.options
+
+        nodes_list = self._generate_nodes(prog_name, command, None, show_nested,
                                     flat_toctree, commands)
+        if skip_main_command:
+            nodes_list = nodes_list[1:]
+
+        return nodes_list
 
 
 def setup(app):
