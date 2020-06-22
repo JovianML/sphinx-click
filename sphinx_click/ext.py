@@ -408,7 +408,6 @@ class ClickDirective(rst.Directive):
                     section_list.extend(new_section)
                 else:
                     section.extend(new_section)
-        
         return section_list
 
     def run(self):
