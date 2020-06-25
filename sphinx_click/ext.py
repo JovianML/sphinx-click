@@ -9,6 +9,7 @@ from sphinx.util import logging
 LOG = logging.getLogger(__name__)
 CLICK_VERSION = tuple(int(x) for x in click.__version__.split('.')[0:2])
 hide_options_in_usage = False
+options_to_last = False
 
 
 def _indent(text, level=1):
@@ -60,7 +61,7 @@ def _get_help_record(opt):
         else:
             extra.append('default: %s' %
                          (', '.join('%s' % d for d in opt.default) if isinstance(
-                         opt.default, (list, tuple)) else opt.default, ))
+                             opt.default, (list, tuple)) else opt.default, ))
     if opt.required:
         extra.append('required')
     if extra:
@@ -100,6 +101,7 @@ def _format_description(ctx):
 
 def _format_usage(ctx, hide_options=False):
     """Format the usage for a `click.Command`."""
+    global options_to_last
     yield '.. code-block:: shell'
     yield ''
     for line in _get_usage(ctx).splitlines():
@@ -107,6 +109,12 @@ def _format_usage(ctx, hide_options=False):
             line = line.split()
             line.remove("[OPTIONS]")
             line = " ".join(line)
+        elif options_to_last:
+            line = line.split()
+            line.remove("[OPTIONS]")
+            line.append("[OPTIONS]")
+            line = " ".join(line)
+
         yield _indent(line)
     yield ''
 
@@ -309,7 +317,8 @@ class ClickDirective(rst.Directive):
         'flat-toctree': directives.flag,
         'commands': directives.unchanged,
         'skip-main-command': directives.flag,
-        'hide-options-in-usage': directives.flag
+        'hide-options-in-usage': directives.flag,
+        'options-to-last': directives.flag
     }
 
     def _load_module(self, module_path):
@@ -427,8 +436,11 @@ class ClickDirective(rst.Directive):
         global hide_options_in_usage
         hide_options_in_usage = 'hide-options-in-usage' in self.options
 
+        global options_to_last
+        options_to_last = 'options-to-last' in self.options
+
         nodes_list = self._generate_nodes(prog_name, command, None, show_nested,
-                                    flat_toctree, commands)
+                                          flat_toctree, commands)
         if skip_main_command:
             nodes_list = nodes_list[1:]
 
