@@ -311,8 +311,8 @@ class ClickDirective(rst.Directive):
         'flat-toctree': directives.flag,
         'commands': directives.unchanged,
         'skip-main-command': directives.flag,
-        'hide-options-in-usage': directives.flag,
-        'options-to-last': directives.flag
+        'hide-options': directives.flag,
+        'options-suffix': directives.flag
     }
 
     def _load_module(self, module_path):
