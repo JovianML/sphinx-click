@@ -97,7 +97,7 @@ def _format_description(ctx):
     yield ''
 
 
-def _format_usage(ctx, hide_options=False, options_to_last=False):
+def _format_usage(ctx, hide_options=False, options_suffix=False):
     """Format the usage for a `click.Command`."""
     yield '.. code-block:: shell'
     yield ''
@@ -106,7 +106,7 @@ def _format_usage(ctx, hide_options=False, options_to_last=False):
             line = line.split()
             line.remove("[OPTIONS]")
             line = " ".join(line)
-        elif options_to_last:
+        elif options_suffix:
             line = line.split()
             line.remove("[OPTIONS]")
             line.append("[OPTIONS]")
@@ -232,7 +232,7 @@ def _filter_commands(ctx, commands=None):
     return [lookup[name] for name in names if name in lookup]
 
 
-def _format_command(ctx, show_nested, hide_options_in_usage, options_to_last, commands=None):
+def _format_command(ctx, show_nested, hide_options, options_suffix, commands=None):
     """Format the output of `click.Command`."""
     if CLICK_VERSION >= (7, 0) and ctx.command.hidden:
         return
@@ -245,10 +245,8 @@ def _format_command(ctx, show_nested, hide_options_in_usage, options_to_last, co
     yield '.. program:: {}'.format(ctx.command_path)
 
     # usage
-    cmd_options = len(list(_format_options(ctx))) > 0
-    hide_options = hide_options_in_usage and not cmd_options
 
-    for line in _format_usage(ctx, hide_options, options_to_last):
+    for line in _format_usage(ctx, hide_options, options_suffix):
         yield line
 
     # options
@@ -360,8 +358,8 @@ class ClickDirective(rst.Directive):
                         parent=None,
                         show_nested=False,
                         flat_toctree=False,
-                        hide_options_in_usage=False,
-                        options_to_last=False,
+                        hide_options=False,
+                        options_suffix=False,
                         commands=None):
         """Generate the relevant Sphinx nodes.
 
@@ -373,8 +371,8 @@ class ClickDirective(rst.Directive):
         :param show_nested: Whether subcommands should be included in output
         :param flat_toctree: Whether a flat toctree is generated for
             subcommands (instead of a hierarchical one)
-        :param hide_options_in_usage: Hide [OPTIONS] in generated command
-        :param options_to_last: Show [OPTIONS] at the end in generated command
+        :param hide_options: Hide [OPTIONS] in generated command
+        :param options_suffix: Show [OPTIONS] at the end in generated command
         :param commands: Display only listed commands or skip the section if empty
         :returns: A list of nested docutil nodes
         """
@@ -396,7 +394,7 @@ class ClickDirective(rst.Directive):
         source_name = ctx.command_path
         result = statemachine.ViewList()
 
-        lines = _format_command(ctx, show_nested, hide_options_in_usage, options_to_last, commands)
+        lines = _format_command(ctx, show_nested, hide_options, options_suffix, commands)
         for line in lines:
             LOG.debug(line)
             result.append(line, source_name)
@@ -411,7 +409,7 @@ class ClickDirective(rst.Directive):
             for command in commands:
                 new_section = self._generate_nodes(command.name, command, ctx,
                                                    show_nested, flat_toctree,
-                                                   hide_options_in_usage, options_to_last)
+                                                   hide_options, options_suffix)
 
                 if flat_toctree:
                     section_list.extend(new_section)
@@ -431,14 +429,14 @@ class ClickDirective(rst.Directive):
         show_nested = 'show-nested' in self.options
         flat_toctree = 'flat-toctree' in self.options
         skip_main_command = 'skip-main-command' in self.options
-        hide_options_in_usage = 'hide-options-in-usage' in self.options,
-        options_to_last = 'options-to-last' in self.options
+        hide_options = 'hide-options' in self.options,
+        options_suffix = 'options-suffix' in self.options
 
         commands = self.options.get('commands')
 
         nodes_list = self._generate_nodes(prog_name, command, None, show_nested,
-                                          flat_toctree, hide_options_in_usage,
-                                          options_to_last, commands)
+                                          flat_toctree, hide_options,
+                                          options_suffix, commands)
         if skip_main_command:
             nodes_list = nodes_list[1:]
 
