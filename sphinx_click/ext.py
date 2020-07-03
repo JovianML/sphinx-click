@@ -8,8 +8,6 @@ from sphinx.util import logging
 
 LOG = logging.getLogger(__name__)
 CLICK_VERSION = tuple(int(x) for x in click.__version__.split('.')[0:2])
-hide_options_in_usage = False
-options_to_last = False
 
 
 def _indent(text, level=1):
@@ -99,9 +97,8 @@ def _format_description(ctx):
     yield ''
 
 
-def _format_usage(ctx, hide_options=False):
+def _format_usage(ctx, hide_options=False, options_to_last=False):
     """Format the usage for a `click.Command`."""
-    global options_to_last
     yield '.. code-block:: shell'
     yield ''
     for line in _get_usage(ctx).splitlines():
@@ -235,7 +232,7 @@ def _filter_commands(ctx, commands=None):
     return [lookup[name] for name in names if name in lookup]
 
 
-def _format_command(ctx, show_nested, commands=None):
+def _format_command(ctx, show_nested, hide_options_in_usage, options_to_last, commands=None):
     """Format the output of `click.Command`."""
     if CLICK_VERSION >= (7, 0) and ctx.command.hidden:
         return
@@ -248,11 +245,10 @@ def _format_command(ctx, show_nested, commands=None):
     yield '.. program:: {}'.format(ctx.command_path)
 
     # usage
-    global hide_options_in_usage
     cmd_options = len(list(_format_options(ctx))) > 0
     hide_options = hide_options_in_usage and not cmd_options
 
-    for line in _format_usage(ctx, hide_options):
+    for line in _format_usage(ctx, hide_options, options_to_last):
         yield line
 
     # options
@@ -364,6 +360,8 @@ class ClickDirective(rst.Directive):
                         parent=None,
                         show_nested=False,
                         flat_toctree=False,
+                        hide_options_in_usage=False,
+                        options_to_last=False,
                         commands=None):
         """Generate the relevant Sphinx nodes.
 
@@ -375,8 +373,9 @@ class ClickDirective(rst.Directive):
         :param show_nested: Whether subcommands should be included in output
         :param flat_toctree: Whether a flat toctree is generated for
             subcommands (instead of a hierarchical one)
-        :param commands: Display only listed commands or skip the section if
-            empty
+        :param hide_options_in_usage: Hide [OPTIONS] in generated command
+        :param options_to_last: Show [OPTIONS] at the end in generated command
+        :param commands: Display only listed commands or skip the section if empty
         :returns: A list of nested docutil nodes
         """
         ctx = click.Context(command, info_name=name, parent=parent)
@@ -397,7 +396,7 @@ class ClickDirective(rst.Directive):
         source_name = ctx.command_path
         result = statemachine.ViewList()
 
-        lines = _format_command(ctx, show_nested, commands)
+        lines = _format_command(ctx, show_nested, hide_options_in_usage, options_to_last, commands)
         for line in lines:
             LOG.debug(line)
             result.append(line, source_name)
@@ -411,7 +410,8 @@ class ClickDirective(rst.Directive):
             commands = _filter_commands(ctx, commands)
             for command in commands:
                 new_section = self._generate_nodes(command.name, command, ctx,
-                                                   show_nested, flat_toctree)
+                                                   show_nested, flat_toctree,
+                                                   hide_options_in_usage, options_to_last)
 
                 if flat_toctree:
                     section_list.extend(new_section)
@@ -430,17 +430,15 @@ class ClickDirective(rst.Directive):
         prog_name = self.options.get('prog')
         show_nested = 'show-nested' in self.options
         flat_toctree = 'flat-toctree' in self.options
-        commands = self.options.get('commands')
         skip_main_command = 'skip-main-command' in self.options
-
-        global hide_options_in_usage
-        hide_options_in_usage = 'hide-options-in-usage' in self.options
-
-        global options_to_last
+        hide_options_in_usage = 'hide-options-in-usage' in self.options,
         options_to_last = 'options-to-last' in self.options
 
+        commands = self.options.get('commands')
+
         nodes_list = self._generate_nodes(prog_name, command, None, show_nested,
-                                          flat_toctree, commands)
+                                          flat_toctree, hide_options_in_usage,
+                                          options_to_last, commands)
         if skip_main_command:
             nodes_list = nodes_list[1:]
 
